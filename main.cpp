@@ -4,6 +4,7 @@
 
 #include "picosystem.hpp"
 
+#define FLASH_TARGET_OFFSET (256 * 1024)
 
 using namespace picosystem;
 
@@ -65,7 +66,7 @@ void init() {
   {
     dials[i] = {{
       {"frequency", "hz",    0, 8000, 440, 50},
-      {    "tempo", "cl",    0,  250, 440, 50},
+      {    "tempo", "cl",    0, 8000, 440, 50},
       {   "volume",  "%",    0,  100,   1, 10},
       {  "sustain",  "%",    0,  100,  80, 10},
       {  "distort",  "%",    0,  100,   0, 10},
@@ -82,14 +83,54 @@ void init() {
   set_voice();
 }
 
-bool songPlaying = false;
-uint32_t startTime = 0;
+void noteEditor(uint32_t tick);
+void drawNoteEditor(uint32_t tick);
+
+void Sequencer(uint32_t tick);
+void drawSequencer(uint32_t tick);
+
+void (*screen)(uint32_t) = Sequencer;
+void (*drawScreen)(uint32_t) = drawSequencer;
 
 // process user input and update the world state
 void update(uint32_t tick) {
+  screen(tick);
+}
 
+void Sequencer(uint32_t tick)
+{
+  if (pressed(X))
+  {
+    screen = noteEditor;
+    drawScreen = drawNoteEditor;
+  }
+  return;
+}
+
+bool songPlaying = false;
+uint32_t startTime = 0;
+
+bool stopMusic = false;
+
+// note editor view
+void noteEditor(uint32_t tick) {
   bool change = false;
 
+  // check if the user wants to exit
+  if (pressed(X))
+  {
+    screen = Sequencer;
+    drawScreen = drawSequencer;
+    return;
+  }
+
+  if (pressed(DOWN) && button(Y))
+  {
+    stopMusic = !stopMusic;
+    return;
+  }
+  if (stopMusic)
+    return;
   // only check for UP/DOWN state every 10 ticks (100ms) to ensure that dial
   // values change at a sensible rate
   if(tick % 10 == 0) {
@@ -184,6 +225,20 @@ void draw_dial(std::string name, int32_t x, int32_t y) {
 
 // draw the world
 void draw(uint32_t tick) {
+  pen(0,0,0);
+  clear();
+  pen(0xFF, 0xFF, 0xFF);
+  drawScreen(tick);
+}
+
+void drawSequencer(uint32_t tick)
+{
+  text("Bitten Tracker\n\nSave: A\n\nLoad: B", 0, 0);
+  sprite(curnote, 180, 0);
+}
+
+void drawNoteEditor(uint32_t tick)
+{
   // draw top row of dials
   pen(10, 12, 4);
   frect(0, 60, 240, 60);
